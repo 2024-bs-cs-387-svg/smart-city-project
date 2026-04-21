@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Admin Panel — Smart City</title>
+<link rel="stylesheet" href="style.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+.user-menu{position:absolute;top:calc(100% + 6px);right:0;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-sm);min-width:190px;box-shadow:var(--shadow);z-index:400;padding:4px 0;}
+.um-item{padding:10px 16px;font-size:.78rem;cursor:pointer;display:block;} .um-item:hover{background:var(--surface2);}
+.um-sep{height:1px;background:var(--border);margin:4px 0;} .um-logout{color:var(--red)!important;}
+.hidden{display:none!important;} #topbar-user{position:relative;} .table-wrap{overflow-x:auto;}
+.live-tag{display:inline-flex;align-items:center;gap:5px;font-size:.62rem;color:var(--green);background:rgba(29,233,155,.08);border:1px solid rgba(29,233,155,.2);padding:3px 8px;border-radius:20px;}
+.live-tag::before{content:'';width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+.user-phone{font-size:.68rem;color:var(--teal);}
+.user-addr{font-size:.65rem;color:var(--text-dim);}
+
+/* Header status pills */
+.h-pill{display:inline-flex;align-items:center;gap:5px;font-size:.6rem;padding:3px 9px;border-radius:20px;background:var(--surface2);border:1px solid var(--border);color:var(--text-dim);}
+.h-pill.active{color:var(--green);border-color:rgba(29,233,155,.3);background:rgba(29,233,155,.06);}
+.h-pill-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;}
+.h-pill.active .h-pill-dot{animation:pulse 1.5s infinite;}
+
+/* Notification Bell */
+.notif-bell-wrap{position:relative;cursor:pointer;padding:4px;}
+.signup-req-badge{display:none;position:absolute;top:-2px;right:-4px;background:var(--red);color:#fff;font-size:.52rem;font-weight:700;padding:2px 5px;border-radius:20px;min-width:16px;text-align:center;line-height:1.5;animation:bellPop .3s ease;}
+@keyframes bellPop{from{transform:scale(0);}to{transform:scale(1);}}
+
+/* Notification bar */
+.signup-notif-bar{display:none;align-items:center;gap:14px;background:linear-gradient(135deg,rgba(245,166,35,.1),rgba(255,80,50,.06));border:1px solid rgba(245,166,35,.4);border-radius:var(--radius-sm);padding:14px 18px;margin-bottom:20px;cursor:pointer;transition:all .2s;}
+.signup-notif-bar:hover{background:linear-gradient(135deg,rgba(245,166,35,.16),rgba(255,80,50,.1));}
+.notif-pulse{width:10px;height:10px;background:var(--amber);border-radius:50%;flex-shrink:0;animation:pulse 1s infinite;}
+.notif-text-wrap{flex:1;}
+.notif-title-txt{font-size:.82rem;font-weight:700;color:var(--amber);}
+.notif-sub-txt{font-size:.72rem;color:var(--text-dim);margin-top:2px;}
+.notif-count-badge{background:var(--amber);color:#000;font-size:.68rem;font-weight:800;padding:4px 12px;border-radius:20px;}
+
+/* Signup request row statuses */
+.req-pending{background:rgba(245,166,35,.1);color:var(--amber);border:1px solid rgba(245,166,35,.3);padding:3px 9px;border-radius:20px;font-size:.64rem;font-weight:600;}
+.req-approved{background:rgba(29,233,155,.1);color:var(--green);border:1px solid rgba(29,233,155,.25);padding:3px 9px;border-radius:20px;font-size:.64rem;}
+.req-denied{background:rgba(255,60,60,.1);color:var(--red);border:1px solid rgba(255,60,60,.25);padding:3px 9px;border-radius:20px;font-size:.64rem;}
+
+/* Section divider */
+.section-label{font-size:.62rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:3px;margin:24px 0 12px;}
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+
+<header class="topbar">
+  <div class="topbar-left">
+    <span class="brand-icon">🏙️</span>
+    <span class="brand-name">Smart City</span>
+    <span class="brand-sub">⚡ Admin Panel</span>
+    <div style="display:flex;gap:6px;margin-left:12px;">
+      <span class="h-pill active"><span class="h-pill-dot"></span>Website</span>
+      <span class="h-pill" id="hpill-sensor"><span class="h-pill-dot"></span>Sensor</span>
+      <span class="h-pill" id="hpill-firebase"><span class="h-pill-dot"></span>Firebase</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <!-- Notification Bell -->
+    <div class="notif-bell-wrap" onclick="scrollToRequests()" title="Signup Requests">
+      <span style="font-size:1.25rem;line-height:1;">🔔</span>
+      <span class="signup-req-badge" id="bell-badge">0</span>
+    </div>
+    <button id="theme-toggle-btn" class="theme-toggle"><div class="theme-thumb"><span id="theme-icon">☀️</span></div></button>
+    <div class="clock-wrap"><span id="clock"></span><span class="top-date" id="top-date"></span></div>
+    <div id="topbar-user"></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <a href="index.html" class="back-btn">← Back to Dashboard</a>
+  <div class="ph">
+    <div class="bc">Dashboard / Admin Panel</div>
+    <h2>⚡ Admin Control Panel</h2>
+    <p>Manage citizen accounts, approve signup requests, view complaints, and control city systems.</p>
+  </div>
+
+  <div class="alert info">⚡ Logged in as <strong id="admin-name"></strong> — Full admin access</div>
+
+  <!-- STATS -->
+  <div class="stat-grid">
+    <div class="sc t"><div class="si">👥</div><div class="sl">Total Citizens</div><div class="sv" id="admin-total-users">—</div><div class="sch">Registered</div></div>
+    <div class="sc p"><div class="si">📋</div><div class="sl">Total Complaints</div><div class="sv" id="admin-total-complaints">—</div><div class="sch">All time</div></div>
+    <div class="sc r"><div class="si">🔴</div><div class="sl">Open</div><div class="sv" id="admin-open-complaints">—</div><div class="sch">Need attention</div></div>
+    <div class="sc g"><div class="si">✅</div><div class="sl">Resolved</div><div class="sv" id="admin-resolved-complaints">—</div><div class="sch">Completed</div></div>
+  </div>
+
+  <!-- ══ NOTIFICATION BAR ══ -->
+  <div class="signup-notif-bar" id="signup-notif-bar" onclick="scrollToRequests()">
+    <div class="notif-pulse"></div>
+    <div class="notif-text-wrap">
+      <div class="notif-title-txt">🔔 New Citizen Signup Requests</div>
+      <div class="notif-sub-txt" id="notif-sub-text">Citizens are waiting for your approval</div>
+    </div>
+    <div class="notif-count-badge" id="notif-count-badge">0</div>
+    <span style="font-size:.72rem;color:var(--amber);font-weight:600;">Review ↓</span>
+  </div>
+
+  <!-- ══ SIGNUP REQUESTS SECTION ══ -->
+  <p class="section-label" id="signup-req-anchor">— Citizen Signup Requests —</p>
+  <div class="card" id="signup-requests-section">
+    <div class="ct" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <span>📋 Signup Requests
+        <span id="pending-req-count" style="background:var(--amber);color:#000;padding:2px 8px;border-radius:20px;font-size:.64rem;margin-left:6px;display:inline-block;">0 Pending</span>
+      </span>
+      <span style="font-size:.7rem;color:var(--text-dim);">Approve or deny citizen registration requests</span>
+    </div>
+    <div class="table-wrap" style="margin-top:14px;">
+      <table class="admin-table">
+        <thead><tr>
+          <th>#</th><th>Name</th><th>Phone</th><th>Address</th><th>City</th><th>Requested On</th><th>Status</th><th>Actions</th>
+        </tr></thead>
+        <tbody id="signup-requests-tbody">
+          <tr><td colspan="8" style="text-align:center;color:var(--text-dim);padding:24px;">
+            <div style="font-size:1.5rem;margin-bottom:8px;">📭</div>
+            No signup requests yet
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══ CITIZEN MANAGEMENT ══ -->
+  <p class="section-label">— Registered Citizens —</p>
+  <div class="card">
+    <div class="ct" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <span>👥 Registered Citizens
+        <span id="users-live-tag" class="live-tag" style="margin-left:8px;display:none;">Live</span>
+      </span>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary btn-sm" onclick="showAddUserModal()">➕ Add Citizen</button>
+        <button class="btn btn-outline btn-sm" onclick="refreshUsers()">🔄 Refresh</button>
+      </div>
+    </div>
+    <div class="table-wrap" style="margin-top:14px;">
+      <table class="admin-table">
+        <thead><tr><th>#</th><th>Name</th><th>Phone</th><th>Address</th><th>City</th><th>Joined</th><th>Actions</th></tr></thead>
+        <tbody id="users-tbody"><tr><td colspan="7" style="text-align:center;color:var(--text-dim);padding:20px;">Loading citizens…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══ COMPLAINTS FEED ══ -->
+  <p class="section-label">— Citizen Complaints —</p>
+  <div class="card">
+    <div class="ct" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <span>📢 All Citizen Complaints
+        <span id="admin-complaint-badge" style="background:var(--red);color:#fff;padding:2px 8px;border-radius:20px;font-size:.65rem;margin-left:6px;">0</span>
+        <span id="complaints-live-tag" class="live-tag" style="margin-left:8px;display:none;">Live</span>
+      </span>
+      <div style="display:flex;gap:8px;">
+        <select class="fsel" id="admin-c-filter" style="font-size:.72rem;padding:4px 8px;height:auto;" onchange="applyAdminFilter()">
+          <option value="all">All</option>
+          <option value="open">Open</option>
+          <option value="progress">In Progress</option>
+          <option value="resolved">Resolved</option>
+        </select>
+        <button class="btn btn-outline btn-sm" onclick="window.location.href='complain.html'">Open Full View</button>
+      </div>
+    </div>
+    <div class="table-wrap" style="margin-top:14px;">
+      <table class="admin-table">
+        <thead><tr><th>#</th><th>Issue</th><th>Citizen</th><th>Phone</th><th>Location</th><th>Priority</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="admin-complaints-tbody"><tr><td colspan="8" style="text-align:center;color:var(--text-dim);padding:20px;">Loading complaints…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══ SYSTEM STATUS ══ -->
+  <p class="section-label">— System —</p>
+  <div class="g2">
+    <div class="card">
+      <div class="ct">🔌 System Status</div>
+      <div class="dr-list">
+        <div class="di"><span class="dk">Firebase Auth</span><span class="dv g" id="admin-fb-status">Checking…</span></div>
+        <div class="di"><span class="dk">Firebase DB</span><span class="dv g"  id="admin-db-status">Checking…</span></div>
+        <div class="di"><span class="dk">ESP8266</span><span class="dv g">Online</span></div>
+        <div class="di"><span class="dk">DHT22 Sensor</span><span class="dv g">Reading</span></div>
+        <div class="di"><span class="dk">YF-S201 Flow</span><span class="dv g">Active</span></div>
+        <div class="di"><span class="dk">Open-Meteo API</span><span class="dv g">Connected</span></div>
+        <div class="di"><span class="dk">Dashboard</span><span class="dv">v6.0</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ct">🔧 Quick Actions</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <button class="btn btn-danger"  onclick="if(confirm('Reset all local complaints?')){localStorage.removeItem('sc_complaints');toast('Local complaints reset','ok');}">🗑 Reset Local Complaints</button>
+        <button class="btn btn-amber"   onclick="if(confirm('Reset local users?')){localStorage.removeItem('sc_users');location.reload();}">👥 Reset Local Users</button>
+        <button class="btn btn-outline" onclick="window.location.href='water.html'">💧 Water Module</button>
+        <button class="btn btn-outline" onclick="window.location.href='weather.html'">🌡️ Weather Module</button>
+        <button class="btn btn-outline" onclick="window.location.href='complain.html'">📢 Complaint Portal</button>
+        <button class="btn btn-ghost"   onclick="doLogout()">🚪 Logout</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD CITIZEN MODAL -->
+  <div class="modal-overlay hidden" id="add-user-modal">
+    <div class="modal">
+      <div class="modal-title">➕ Register New Citizen</div>
+      <button class="modal-close" onclick="document.getElementById('add-user-modal').classList.add('hidden')">✕</button>
+      <div class="fg"><label class="flbl">Full Name *</label><input class="finp" id="nu-name" placeholder="Citizen full name"/></div>
+      <div class="fg"><label class="flbl">Phone Number *</label><input class="finp" id="nu-phone" type="tel" placeholder="03XXXXXXXXX"/></div>
+      <div class="fr2">
+        <div class="fg"><label class="flbl">House No</label><input class="finp" id="nu-house" placeholder="e.g. 12-A"/></div>
+        <div class="fg"><label class="flbl">Block</label><input class="finp" id="nu-block" placeholder="e.g. Block B"/></div>
+      </div>
+      <div class="fg"><label class="flbl">City</label>
+        <select class="fsel" id="nu-city">
+          <option>Faisalabad</option><option>Lahore</option><option>Karachi</option><option>Islamabad</option><option>Multan</option>
+        </select>
+      </div>
+      <div class="ferr" id="nu-err" style="display:block;text-align:center;margin-bottom:8px;"></div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="addCitizenFromModal()">✅ Register</button>
+        <button class="btn btn-ghost"   onclick="document.getElementById('add-user-modal').classList.add('hidden')">Cancel</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="fb-bar" id="fb-status-bar">🔥 Admin Panel — Full access</div>
+<footer class="footer"><span>Admin Panel · <strong>Smart City</strong></span><span>FA22-370 · FA22-387 · Sir Shoaib</span></footer>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="auth.js"></script>
+<script src="app.js"></script>
+<script>
+requireAdmin();
+
+let adminComplaintsCache = [];
+let adminCFilter = 'all';
+
+function scrollToRequests() {
+  document.getElementById('signup-req-anchor').scrollIntoView({behavior:'smooth'});
+}
+
+// ── Header Pill Updates ──────────────────────────
+function updateHeaderPills() {
+  const sensor   = document.getElementById('hpill-sensor');
+  const firebase = document.getElementById('hpill-firebase');
+  if (sensor)   sensor.classList.toggle('active',   !!fbConnected);
+  if (firebase) firebase.classList.toggle('active', !!fbConnected);
+}
+
+// ── Signup Requests Rendering ────────────────────
+// Called by startSignupRequestsListener in firebase-config.js
+function renderSignupRequests(list) {
+  const tbody    = document.getElementById('signup-requests-tbody');
+  const countEl  = document.getElementById('pending-req-count');
+  const bellBadge= document.getElementById('bell-badge');
+  const notifBar = document.getElementById('signup-notif-bar');
+  const notifCnt = document.getElementById('notif-count-badge');
+
+  const pending = list.filter(r => r.status === 'pending');
+  const pCount  = pending.length;
+
+  // Update bell badge
+  if (bellBadge) { bellBadge.textContent = pCount; bellBadge.style.display = pCount > 0 ? 'inline-flex' : 'none'; }
+  // Update notification bar
+  if (notifBar) notifBar.style.display = pCount > 0 ? 'flex' : 'none';
+  if (notifCnt) notifCnt.textContent = pCount;
+  // Update pending count pill
+  if (countEl) countEl.textContent = pCount > 0 ? `${pCount} Pending` : '0 Pending';
+
+  if (!tbody) return;
+
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text-dim);padding:28px;">
+      <div style="font-size:1.8rem;margin-bottom:8px;">📭</div>No signup requests yet</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map((r, i) => {
+    const date = r.createdAt
+      ? new Date(r.createdAt).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'})
+      : '—';
+    const statusHtml =
+      r.status === 'pending'  ? `<span class="req-pending">⏳ Pending</span>`  :
+      r.status === 'approved' ? `<span class="req-approved">✅ Approved</span>` :
+                                `<span class="req-denied">❌ Denied</span>`;
+    const actionsHtml = r.status === 'pending'
+      ? `<div style="display:flex;gap:5px;flex-wrap:wrap;">
+           <button class="btn btn-success btn-sm" onclick="approveReq('${r.reqKey}','${r.name}','${r.phone}','${r.houseNo}','${r.block}','${r.city}')">✅ Approve</button>
+           <button class="btn btn-danger btn-sm"  onclick="denyReq('${r.reqKey}','${r.name}')">❌ Deny</button>
+         </div>`
+      : `<span style="font-size:.68rem;color:var(--text-dim);">Reviewed</span>`;
+
+    return `<tr>
+      <td style="font-size:.68rem;color:var(--text-dim);">${i + 1}</td>
+      <td><strong>${r.name || '—'}</strong></td>
+      <td class="user-phone">${r.phone || '—'}</td>
+      <td class="user-addr">${r.houseNo || '—'}, ${r.block || '—'}</td>
+      <td>${r.city || 'Faisalabad'}</td>
+      <td style="font-size:.68rem;">${date}</td>
+      <td>${statusHtml}</td>
+      <td>${actionsHtml}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function approveReq(reqKey, name, phone, houseNo, block, city) {
+  if (!confirm(`Approve "${name}"? They will be able to log in as a citizen.`)) return;
+  try {
+    await fbApproveSignupRequest(reqKey, {name, phone, houseNo, block, city});
+    toast(`✅ ${name} has been approved and can now log in.`, 'ok');
+  } catch(e) { toast('Error: ' + e.message, 'err'); }
+}
+
+async function denyReq(reqKey, name) {
+  if (!confirm(`Deny "${name}"'s signup request?`)) return;
+  try {
+    await fbDenySignupRequest(reqKey);
+    toast(`❌ ${name}'s request has been denied.`, 'err');
+  } catch(e) { toast('Error: ' + e.message, 'err'); }
+}
+window.approveReq = approveReq;
+window.denyReq    = denyReq;
+window.scrollToRequests = scrollToRequests;
+
+// ── Init ────────────────────────────────────────
+setTimeout(() => {
+  updateHeaderPills();
+  const s  = getSession();
+  const nm = document.getElementById('admin-name');
+  if (nm && s) nm.textContent = s.name;
+
+  const fbSt = document.getElementById('admin-fb-status');
+  const dbSt = document.getElementById('admin-db-status');
+  if (fbSt) { fbSt.textContent = fbConnected ? '✅ Active' : '⚪ Offline'; fbSt.className = fbConnected ? 'dv g' : 'dv a'; }
+  if (dbSt) { dbSt.textContent = fbConnected ? '✅ Connected' : '⚪ Local Storage'; dbSt.className = fbConnected ? 'dv g' : 'dv a'; }
+
+  if (fbConnected) {
+    const utag = document.getElementById('users-live-tag');
+    const ctag = document.getElementById('complaints-live-tag');
+    if (utag) utag.style.display = 'inline-flex';
+    if (ctag) ctag.style.display = 'inline-flex';
+    // Start signup requests listener here — AFTER renderSignupRequests is defined
+    startSignupRequestsListener();
+  } else {
+    refreshUsers();
+    renderAdminComplaints(getComplaints());
+    renderSignupRequests([]);
+  }
+}, 900);
+
+// ── USERS ────────────────────────────────────────
+function renderUserTableFromFb(list) {
+  const citizens = list.filter(u => u.role !== 'admin');
+  renderUserRows(citizens);
+  updateAdminStats(citizens.length, adminComplaintsCache);
+}
+
+function refreshUsers() {
+  const users = getUsers().filter(u => u.role !== 'admin');
+  renderUserRows(users);
+  updateAdminStats(users.length, adminComplaintsCache);
+}
+window.refreshUsers = refreshUsers;
+
+function renderUserRows(citizens) {
+  const tbody = document.getElementById('users-tbody');
+  if (!tbody) return;
+  if (!citizens.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-dim);padding:24px;"><div style="font-size:1.5rem;margin-bottom:6px;">👥</div>No citizens registered yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML = citizens.map((u, i) => `
+    <tr>
+      <td style="font-size:.68rem;color:var(--text-dim);">${i+1}</td>
+      <td><strong>${u.name}</strong></td>
+      <td class="user-phone">${u.phone||'—'}</td>
+      <td class="user-addr">${u.houseNo||'—'}, ${u.block||'—'}</td>
+      <td>${u.city||'Faisalabad'}</td>
+      <td style="font-size:.68rem;">${u.joined||'—'}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteCitizen('${u.id}','${u.fbKey||u.id}')">🗑 Delete</button></td>
+    </tr>`).join('');
+}
+
+async function deleteCitizen(localId, fbKey) {
+  if (!confirm('Delete this citizen? This cannot be undone.')) return;
+  if (fbConnected && typeof fbDeleteUser === 'function') {
+    await fbDeleteUser(fbKey);
+    toast('✅ Citizen deleted from Firebase', 'ok');
+  } else {
+    const users = getUsers().filter(u => u.id !== localId);
+    saveUsers(users);
+    refreshUsers();
+    toast('✅ Citizen deleted', 'ok');
+  }
+}
+window.deleteCitizen = deleteCitizen;
+
+function showAddUserModal() {
+  document.getElementById('add-user-modal').classList.remove('hidden');
+  document.getElementById('nu-err').textContent = '';
+}
+window.showAddUserModal = showAddUserModal;
+
+async function addCitizenFromModal() {
+  const name  = document.getElementById('nu-name').value.trim();
+  const phone = document.getElementById('nu-phone').value.trim();
+  const house = document.getElementById('nu-house').value.trim();
+  const block = document.getElementById('nu-block').value.trim();
+  const city  = document.getElementById('nu-city').value;
+  const errEl = document.getElementById('nu-err');
+  errEl.textContent = '';
+  if (!name)  { errEl.textContent = 'Name is required'; return; }
+  if (!phone) { errEl.textContent = 'Phone is required'; return; }
+  // Admin directly registers — bypass pending flow
+  if (fbConnected && db) {
+    const uid = 'citizen-' + Date.now();
+    await db.ref('users/' + uid).set({
+      name, phone, houseNo:house||'—', block:block||'—',
+      email:phone+'@citizen.local', role:'user', city,
+      joined:new Date().toLocaleDateString('en-PK',{month:'short',year:'numeric'}),
+      createdAt:Date.now()
+    });
+    document.getElementById('add-user-modal').classList.add('hidden');
+    toast(`✅ ${name} registered successfully`, 'ok');
+  } else {
+    const res = await doSignup(name, phone, house, block, city);
+    if (!res.ok) { errEl.textContent = res.msg; return; }
+    const currentSession = JSON.parse(localStorage.getItem('sc_auth_user'));
+    if (currentSession) saveSession(currentSession);
+    document.getElementById('add-user-modal').classList.add('hidden');
+    toast(`✅ ${name} registered`, 'ok');
+    if (!fbConnected) refreshUsers();
+  }
+}
+window.addCitizenFromModal = addCitizenFromModal;
+
+// ── COMPLAINTS ────────────────────────────────────
+function updateAdminComplaintFeed(list) {
+  adminComplaintsCache = list;
+  renderAdminComplaints(list);
+  updateAdminStats(null, list);
+}
+
+function applyAdminFilter() {
+  adminCFilter = document.getElementById('admin-c-filter').value;
+  const filtered = adminCFilter === 'all'
+    ? adminComplaintsCache
+    : adminComplaintsCache.filter(c => c.status === adminCFilter);
+  renderAdminComplaints(filtered);
+}
+window.applyAdminFilter = applyAdminFilter;
+
+function renderAdminComplaints(list) {
+  const tbody = document.getElementById('admin-complaints-tbody');
+  if (!tbody) return;
+  if (!list || !list.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-dim);padding:24px;"><div style="font-size:1.5rem;margin-bottom:6px;">📭</div>No complaints found</td></tr>';
+    updateAdminStats(null, []);
+    return;
+  }
+  tbody.innerHTML = list.map(c => `
+    <tr>
+      <td style="font-size:.68rem;color:var(--text-dim);">#${String(c.id||c.fbKey||'').slice(-4)||'—'}</td>
+      <td><strong style="font-size:.8rem;">${c.title}</strong><br><span style="font-size:.62rem;color:var(--text-dim);">${c.cat||''}</span></td>
+      <td style="font-size:.72rem;">👤 ${c.user||'—'}</td>
+      <td style="font-size:.68rem;color:var(--teal);">${c.userPhone||'—'}</td>
+      <td style="font-size:.72rem;">📍 ${c.loc||'—'}</td>
+      <td><span class="pri-badge pri-${(c.priority||'').toLowerCase()}">${c.priority||'—'}</span></td>
+      <td><span class="cb ${c.status==='open'?'op':c.status==='progress'?'pr':'rs'}">${c.status==='open'?'Open':c.status==='progress'?'In Progress':'Resolved'}</span></td>
+      <td>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+          ${c.status!=='progress' ?`<button class="btn btn-outline btn-sm" title="Mark In Progress" onclick="adminUpdateC('${c.fbKey||c.id}','progress',${!c.fbKey})">🔵</button>`:''}
+          ${c.status!=='resolved' ?`<button class="btn btn-success btn-sm" title="Mark Resolved"    onclick="adminUpdateC('${c.fbKey||c.id}','resolved',${!c.fbKey})">✅</button>`:''}
+          <button class="btn btn-danger btn-sm" title="Delete" onclick="adminDeleteC('${c.fbKey||c.id}',${!c.fbKey})">🗑</button>
+        </div>
+      </td>
+    </tr>`).join('');
+  updateAdminStats(null, list);
+}
+
+async function adminUpdateC(id, status, isLocal) {
+  await updateCStatus(id, status, isLocal);
+  if (!fbConnected) { adminComplaintsCache = getComplaints(); renderAdminComplaints(adminComplaintsCache); }
+}
+async function adminDeleteC(id, isLocal) {
+  if (!confirm('Delete this complaint?')) return;
+  await deleteCById(id, isLocal);
+  if (!fbConnected) { adminComplaintsCache = getComplaints(); renderAdminComplaints(adminComplaintsCache); }
+}
+window.adminUpdateC  = adminUpdateC;
+window.adminDeleteC  = adminDeleteC;
+
+function updateAdminStats(citizenCount, complaints) {
+  const users = citizenCount !== null ? citizenCount : (getUsers().filter(u=>u.role!=='admin').length);
+  const c = complaints || [];
+  setTxt('admin-total-users',        users);
+  setTxt('admin-total-complaints',   c.length);
+  setTxt('admin-open-complaints',    c.filter(x => x.status==='open').length);
+  setTxt('admin-resolved-complaints',c.filter(x => x.status==='resolved').length);
+  const badge = document.getElementById('admin-complaint-badge');
+  if (badge) badge.textContent = c.filter(x => x.status==='open').length;
+}
+</script>
+</body></html>
